@@ -1,5 +1,5 @@
 # Find-My-Nearest-Favorite-Places-Android-Wear-App
-This is android wear app, pair with android phone to display nearest favorite places. 
+This is android wear app, pair with android phone to display nearest favorite places. This app will demo how to send and receive data map between phone and wear device. 
 Android phone app will update list of favorite places such as cinema,pub,restaurant,... 
 then this list will update on android wear app,
 android app using google play location/maps services, google places api service
