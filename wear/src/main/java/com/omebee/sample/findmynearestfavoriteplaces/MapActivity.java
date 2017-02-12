@@ -1,21 +1,31 @@
 package com.omebee.sample.findmynearestfavoriteplaces;
 
+import android.graphics.Color;
+import android.graphics.Typeface;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.wearable.activity.WearableActivity;
 import android.support.wearable.view.DismissOverlayView;
 import android.util.Log;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.View;
 import android.view.WindowInsets;
 import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapFragment;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.PolylineOptions;
+
+import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -36,6 +46,7 @@ public class MapActivity extends WearableActivity implements OnMapReadyCallback,
     List<HashMap<String, String>> nearestPlaces = new ArrayList<>();
     int currentPlaceIndex = 0;
     String currentLat = "", currentLng = "", name = "";
+    LatLng currentLocation;
     public void onCreate(Bundle savedState) {
         super.onCreate(savedState);
         if(getIntent().getExtras()!=null){
@@ -47,7 +58,9 @@ public class MapActivity extends WearableActivity implements OnMapReadyCallback,
             currentLat = "-33.8670522";
             currentLng = "151.1957362";
             name = "restaurant";
+
         }
+        currentLocation = new LatLng(Double.parseDouble(currentLat),Double.parseDouble(currentLng));
         setContentView(R.layout.map_activity);
 
         setAmbientEnabled();
@@ -70,9 +83,37 @@ public class MapActivity extends WearableActivity implements OnMapReadyCallback,
                 double lng = Double.parseDouble(nearestPlace.get("lng"));
                 Log.d("Nearest Place",lat+"-"+lng+"-"+nearestPlace.get("place_name"));
                 LatLng location = new LatLng(lat,lng);
-                mMap.addMarker(new MarkerOptions().position(location)
+                mMap.clear();
+                /*mMap.addMarker(new MarkerOptions().position(location)
                         .title(nearestPlace.get("place_name"))).showInfoWindow();
-                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 17.0f));
+                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 17.0f));*/
+                String urlDirection = FindPlacesHelper.getMapsApiDirectionsUrl(currentLocation,location);
+                DrawRouteTask drawRouteTask = new DrawRouteTask(location,nearestPlace.get("place_name"),nearestPlace.get("vicinity"));
+                drawRouteTask.execute(urlDirection);
+            }
+        });
+
+        Button previousPlace = (Button)findViewById(R.id.previous);
+        previousPlace.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(currentPlaceIndex==0){
+                    currentPlaceIndex = nearestPlaces.size()-1;
+                }else{
+                    currentPlaceIndex--;
+                }
+                HashMap<String, String> nearestPlace = nearestPlaces.get(currentPlaceIndex);
+                double lat = Double.parseDouble(nearestPlace.get("lat"));
+                double lng = Double.parseDouble(nearestPlace.get("lng"));
+                Log.d("Nearest Place",lat+"-"+lng+"-"+nearestPlace.get("place_name"));
+                LatLng location = new LatLng(lat,lng);
+                mMap.clear();
+                /*mMap.addMarker(new MarkerOptions().position(location)
+                        .title(nearestPlace.get("place_name"))).showInfoWindow();
+                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 17.0f));*/
+                String urlDirection = FindPlacesHelper.getMapsApiDirectionsUrl(currentLocation,location);
+                DrawRouteTask drawRouteTask = new DrawRouteTask(location,nearestPlace.get("place_name"),nearestPlace.get("vicinity"));
+                drawRouteTask.execute(urlDirection);
             }
         });
         // Set the system view insets on the containers when they become available.
@@ -181,10 +222,117 @@ public class MapActivity extends WearableActivity implements OnMapReadyCallback,
                 double lng = Double.parseDouble(nearestPlace.get("lng"));
                 Log.d("Nearest Place",lat+"-"+lng+"-"+nearestPlace.get("place_name"));
                 LatLng location = new LatLng(lat,lng);
-                mMap.addMarker(new MarkerOptions().position(location)
+                /*mMap.addMarker(new MarkerOptions().position(location)
                         .title(nearestPlace.get("place_name"))).showInfoWindow();
-                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 17.0f));
+                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 17.0f));*/
+                String urlDirection = FindPlacesHelper.getMapsApiDirectionsUrl(currentLocation,location);
+                DrawRouteTask drawRouteTask = new DrawRouteTask(location,nearestPlace.get("place_name"),nearestPlace.get("vicinity"));
+                drawRouteTask.execute(urlDirection);
             }
+        }
+    }
+
+    private class DrawRouteTask extends AsyncTask<String,Integer, List<List<HashMap<String , String >>>> {
+        LatLng _destLocation;
+        String _placeName;
+        String _distanceText = null;
+        String _vicinity;
+
+        public DrawRouteTask(LatLng destLocation,String placeName,String vicinity){
+            _destLocation = destLocation;
+            _placeName = placeName;
+            _vicinity = vicinity;
+
+        }
+        @Override
+        protected List<List<HashMap<String, String>>> doInBackground(
+                String... url) {
+            // TODO Auto-generated method stub
+
+            JSONObject jObject;
+            List<List<HashMap<String, String>>> routes = null;
+            try {
+                String jsonData = FindPlacesHelper.readDirectionsUrl(url[0]);
+                if(jsonData!=null && !jsonData.isEmpty()){
+                    jObject = new JSONObject(jsonData);
+                    routes = FindPlacesHelper.parseJsonDirectionData(jObject);
+                    _distanceText = FindPlacesHelper.parseJsonDistanceData(jObject);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            return routes;
+        }
+
+        @Override
+        protected void onPostExecute(List<List<HashMap<String, String>>> routes) {
+            ArrayList<LatLng> points = null;
+            PolylineOptions polyLineOptions = null;
+
+            // traversing through routes
+            if(routes.size()>0){
+                points = new ArrayList<LatLng>();
+                polyLineOptions = new PolylineOptions();
+                List<HashMap<String, String>> path = routes.get(0);
+
+                for (int j = 0; j < path.size(); j++) {
+                    HashMap<String, String> point = path.get(j);
+
+                    double lat = Double.parseDouble(point.get("lat"));
+                    double lng = Double.parseDouble(point.get("lng"));
+                    LatLng position = new LatLng(lat, lng);
+
+                    points.add(position);
+                }
+
+                polyLineOptions.addAll(points);
+                polyLineOptions.width(6);
+                polyLineOptions.color(Color.BLUE);
+            }
+
+            if(polyLineOptions!=null) {
+                mMap.addPolyline(polyLineOptions);
+            }
+            String snippet = _vicinity;
+            if(_distanceText!= null && !_distanceText.isEmpty()){
+                snippet = snippet + System.lineSeparator() + "Distance: "+ _distanceText;
+            }
+
+            mMap.setInfoWindowAdapter(new GoogleMap.InfoWindowAdapter() {
+
+                @Override
+                public View getInfoWindow(Marker arg0) {
+                    return null;
+                }
+
+                @Override
+                public View getInfoContents(Marker marker) {
+
+                    LinearLayout info = new LinearLayout(getApplicationContext());
+                    info.setOrientation(LinearLayout.VERTICAL);
+
+                    TextView title = new TextView(getApplicationContext());
+                    title.setTextColor(Color.BLACK);
+                    title.setGravity(Gravity.START);
+                    title.setTypeface(null, Typeface.BOLD);
+                    title.setTextSize(TypedValue.COMPLEX_UNIT_PX,getResources().getDimension(R.dimen.marker_title));
+                    title.setText(marker.getTitle());
+
+                    TextView snippet = new TextView(getApplicationContext());
+                    snippet.setTextColor(Color.GRAY);
+                    snippet.setTextSize(TypedValue.COMPLEX_UNIT_PX,getResources().getDimension(R.dimen.marker_snippet));
+                    snippet.setText(marker.getSnippet());
+
+                    info.addView(title);
+                    info.addView(snippet);
+
+                    return info;
+                }
+            });
+            mMap.addMarker(new MarkerOptions().position(_destLocation)
+                    .title(_placeName).snippet(snippet)).showInfoWindow();
+            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(_destLocation, 17.0f));
+
         }
     }
 }

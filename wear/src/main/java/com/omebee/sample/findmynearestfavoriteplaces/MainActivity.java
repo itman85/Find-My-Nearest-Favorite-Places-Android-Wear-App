@@ -85,11 +85,15 @@ public class MainActivity extends WearableActivity implements PlacesListAdapter.
     @Override
     public void onItemSelected(int position) {
         //Toast.makeText(this, places.get(position), Toast.LENGTH_LONG).show();
-        Intent intent = new Intent(this, MapActivity.class);
-        intent.putExtra("lat",currentLat);
-        intent.putExtra("lng",currentLng);
-        intent.putExtra("name",places.get(position));
-        startActivity(intent);
+        if(currentLng.isEmpty() || currentLng.isEmpty()){
+            Toast.makeText(this,"Cannot get current location",Toast.LENGTH_LONG).show();
+        }else {
+            Intent intent = new Intent(this, MapActivity.class);
+            intent.putExtra("lat", currentLat);
+            intent.putExtra("lng", currentLng);
+            intent.putExtra("name", places.get(position));
+            startActivity(intent);
+        }
 
     }
 

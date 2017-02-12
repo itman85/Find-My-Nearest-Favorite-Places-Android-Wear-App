@@ -21,12 +21,25 @@
                 android:layout_height="match_parent"
                 android:name="com.google.android.gms.maps.MapFragment"
                 android:layout_weight="4"/>
-            <Button
-                android:id="@+id/next"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Next nearest place"
-                android:layout_weight="1"/>
+                android:orientation="horizontal"
+                android:layout_weight="1">
+                <Button
+                    android:id="@+id/previous"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Previous"
+                    android:layout_weight="1"/>
+                <Button
+                    android:id="@+id/next"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Next"
+                    android:layout_weight="1"/>
+            </LinearLayout>
+
         </LinearLayout>
 
 
